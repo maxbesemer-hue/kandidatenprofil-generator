@@ -1,0 +1,68 @@
+====================================================================
+ Kandidatenprofil-Generator – Starten auf dem Mac
+====================================================================
+
+Du brauchst KEINEN Schlüssel/Key und keine Vorkenntnisse. Einmal
+einrichten, danach reicht ein Doppelklick.
+
+--------------------------------------------------------------------
+SCHRITT 0 – Ordner entpacken
+--------------------------------------------------------------------
+Falls du eine .zip erhalten hast: Doppelklick darauf. Es entsteht ein
+Ordner "Kandidatenprofilgenerator". Diesen Ordner am besten in den
+Finder unter "Dokumente" oder auf den Schreibtisch legen und dort
+zusammenlassen (Dateien nicht einzeln herausziehen).
+
+--------------------------------------------------------------------
+SCHRITT 1 – Python installieren (nur EINMAL, falls noch nicht da)
+--------------------------------------------------------------------
+1. Im Browser öffnen:  https://www.python.org/downloads/
+2. Auf den großen gelben Button "Download Python" klicken.
+3. Die heruntergeladene Datei (.pkg) öffnen und den Installer einfach
+   durchklicken (Fortfahren → Fortfahren → Installieren).
+Das ist nur einmal nötig.
+
+--------------------------------------------------------------------
+SCHRITT 2 – Programm starten
+--------------------------------------------------------------------
+1. Im Ordner die Datei
+        "Kandidatenprofil-Generator starten.command"
+   mit RECHTSKLICK (oder Ctrl-Taste + Klick) anklicken und "Öffnen"
+   wählen.
+2. Es erscheint eine Sicherheitsmeldung von macOS – dort nochmals auf
+   "Öffnen" klicken. (Das ist normal bei Programmen, die nicht aus dem
+   App Store kommen, und nur beim allerersten Mal nötig.)
+
+   Falls stattdessen steht "... kann nicht geöffnet werden":
+   Apple-Menü → Systemeinstellungen → "Datenschutz & Sicherheit" →
+   ganz unten erscheint ein Hinweis mit dem Button "Dennoch öffnen" –
+   diesen anklicken.
+
+--------------------------------------------------------------------
+SCHRITT 3 – Beim ersten Start kurz warten
+--------------------------------------------------------------------
+Es öffnet sich ein schwarzes Fenster (Terminal). Beim ALLERERSTEN Mal
+richtet sich das Programm selbst ein (1–2 Minuten, Internet nötig).
+Danach öffnet sich automatisch dein Browser mit der App.
+
+Das Terminal-Fenster bitte geöffnet lassen, solange du die App nutzt.
+Zum Beenden einfach das Terminal-Fenster schließen.
+
+Ab dem nächsten Mal genügt ein normaler DOPPELKLICK auf
+"Kandidatenprofil-Generator starten.command" (oder auf die App
+"Kandidatenprofil-Generator.app").
+
+--------------------------------------------------------------------
+SO BENUTZT DU DIE APP
+--------------------------------------------------------------------
+1. Interviewprotokoll hochladen (.txt/.docx/.pdf) ODER den Text direkt
+   in das Feld einfügen. Optional einen Lebenslauf hochladen.
+2. Profiltyp (normal oder anonymes Blindprofil), Branding, Zielposition,
+   Bewertung und gewünschte Rubriken wählen.
+3. "Entwurf erstellen" klicken und die Texte prüfen/bearbeiten.
+4. "Kandidatenprofil erzeugen" und dann "Herunterladen".
+
+Hinweis: Der KI-Zugang ist bereits hinterlegt – du musst nichts
+eingeben. Falls einmal "KI-Server überlastet" erscheint: ein paar
+Sekunden warten und erneut auf "Entwurf erstellen" klicken.
+====================================================================

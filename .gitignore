@@ -1,0 +1,20 @@
+# NIEMALS Geheimnisse einchecken -- der API-Key darf nie ins Repo!
+.streamlit/secrets.toml
+
+# Virtuelle Umgebung (wird beim Deployment automatisch neu erstellt)
+venv/
+
+# Arbeits- und Ausgabeordner
+tmp_uploads/
+output/
+
+# Python-Cache
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
+
+# Lokale App-Bundles / Starter (nicht fürs Hosting nötig)
+Kandidatenprofil-Generator.app/
+*.command

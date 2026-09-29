@@ -1,0 +1,10 @@
+[theme]
+# Variante C "Dossier": Navy als Bedien-Akzent (Slider/Checkboxen/Radio),
+# Elfenbein-Grund, Karten in warmem Weiß. Typografie kommt aus dem CSS in app.py
+# (Cormorant Garamond + Karla).
+base = "light"
+primaryColor = "#16233A"
+backgroundColor = "#F6F3EC"
+secondaryBackgroundColor = "#FFFDF9"
+textColor = "#1C2A3A"
+font = "sans serif"
