@@ -418,7 +418,17 @@ def build_candidate_profile(data: dict, sections: dict, output_path: str,
     if assets_dir is None:
         assets_dir = os.path.dirname(os.path.abspath(__file__))
 
-    brand = config.BRANDS.get(brand, config.BRANDS[config.DEFAULT_BRAND])
+    brand_key = brand if brand in config.BRANDS else config.DEFAULT_BRAND
+    brand = config.BRANDS[brand_key]
+
+    # VIP nutzt ein vollständig eigenes Dokument-Design (Deckblatt mit dunkler
+    # Seitenleiste, Steckbrief-Panel, nummerierte Rubriken, grüne Rand-Spalte,
+    # eigene Kopf-/Fußzeile). Gilt für Voll- UND Blindprofile. Vertico bleibt
+    # davon unberührt und läuft weiter durch den Code unten.
+    if brand_key == "vip":
+        return _build_vip_profile(
+            data, sections, output_path, assets_dir, photo_path,
+            section_keys, brand, blind, reference)
 
     doc = Document()
 
@@ -563,6 +573,411 @@ def build_candidate_profile(data: dict, sections: dict, output_path: str,
         if i > 0:
             sig_p.add_run().add_break()
         _set_run_font(sig_p.add_run(line), size=config.BODY_SIZE)
+
+    doc.save(output_path)
+    return output_path
+
+
+# =========================================================================
+# VIP-DESIGN
+# Eigenständiges Dokument-Design nur für die Marke VIP (Voll- und Blindprofil).
+# Deckblatt: dunkle Seitenleiste (Logo, Name/Chiffre, Rolle, Kontakt) + großer
+# Titel rechts. Innenseiten: grüne Rand-Spalte, Steckbrief-Panel als Tabelle,
+# nummerierte Rubriken (01..) mit grünem Zahl-Akzent, eigene Kopf-/Fußzeile,
+# linksbündiger Arial-Fließtext mit quadratischen Aufzählungszeichen.
+# Inhalt, Reihenfolge und Blind-Logik sind identisch zu Vertico -- nur die
+# optische Hülle unterscheidet sich. Design-Werte stehen in config (VIP_*).
+# =========================================================================
+def _vip_font(run, name, size, bold=False, color=None, italic=False):
+    run.font.name = name
+    rpr = run._element.get_or_add_rPr()
+    rfonts = rpr.find(qn('w:rFonts'))
+    if rfonts is None:
+        rfonts = OxmlElement('w:rFonts')
+        rpr.append(rfonts)
+    for attr in ('w:ascii', 'w:hAnsi', 'w:cs', 'w:eastAsia'):
+        rfonts.set(qn(attr), name)
+    run.font.size = size
+    run.font.bold = bold
+    run.font.italic = italic
+    if color:
+        run.font.color.rgb = RGBColor.from_string(color)
+
+
+def _vip_multiline(paragraph, lines, font, size, color=None, bold=False, align=None):
+    """Mehrere Zeilen in EINEN Absatz, getrennt durch echte Zeilenumbrüche
+    (<w:br/>). Nötig, weil ein "\\n" im Run-Text von Word nicht als Umbruch
+    gerendert wird."""
+    if align is not None:
+        paragraph.alignment = align
+    for i, line in enumerate(lines):
+        if i > 0:
+            paragraph.add_run().add_break()
+        _vip_font(paragraph.add_run(line), font, size, bold=bold, color=color)
+
+
+def _vip_pborder(p, edge, color, sz=6, space=4):
+    pPr = p._p.get_or_add_pPr()
+    pbdr = pPr.find(qn('w:pBdr'))
+    if pbdr is None:
+        pbdr = OxmlElement('w:pBdr')
+        pPr.append(pbdr)
+    e = OxmlElement('w:' + edge)
+    e.set(qn('w:val'), 'single')
+    e.set(qn('w:sz'), str(sz))
+    e.set(qn('w:space'), str(space))
+    e.set(qn('w:color'), color)
+    pbdr.append(e)
+
+
+def _vip_shade(cell, color):
+    tcPr = cell._tc.get_or_add_tcPr()
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:val'), 'clear')
+    shd.set(qn('w:fill'), color)
+    tcPr.append(shd)
+
+
+def _vip_table_borders(table, color, sz=4):
+    tblPr = table._tbl.tblPr
+    borders = OxmlElement('w:tblBorders')
+    for edge in ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'):
+        e = OxmlElement('w:' + edge)
+        e.set(qn('w:val'), 'single')
+        e.set(qn('w:sz'), str(sz))
+        e.set(qn('w:space'), '0')
+        e.set(qn('w:color'), color)
+        borders.append(e)
+    tblPr.append(borders)
+
+
+def _vip_emu(inch):
+    return str(int(inch * 914400))
+
+
+def _vip_spine(paragraph, color):
+    """Dünne, vollhohe Akzent-Spalte im linken Seitenrand. Wird im KOPFZEILEN-
+    Absatz verankert und relativ zur SEITE positioniert -- dadurch erscheint sie
+    automatisch auf jeder Inhaltsseite der Sektion."""
+    xml = (
+        '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+        ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"'
+        ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+        ' xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
+        '<w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0"'
+        ' relativeHeight="0" behindDoc="1" locked="0" layoutInCell="1" allowOverlap="1">'
+        '<wp:simplePos x="0" y="0"/>'
+        '<wp:positionH relativeFrom="page"><wp:posOffset>' + _vip_emu(0.62)
+        + '</wp:posOffset></wp:positionH>'
+        '<wp:positionV relativeFrom="page"><wp:posOffset>0</wp:posOffset></wp:positionV>'
+        '<wp:extent cx="' + _vip_emu(0.09) + '" cy="' + _vip_emu(11.0) + '"/>'
+        '<wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/>'
+        '<wp:docPr id="97" name="VIP-Randspalte"/><wp:cNvGraphicFramePr/>'
+        '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
+        '<wps:wsp><wps:cNvSpPr/><wps:spPr>'
+        '<a:xfrm><a:off x="0" y="0"/><a:ext cx="' + _vip_emu(0.09) + '" cy="'
+        + _vip_emu(11.0) + '"/></a:xfrm>'
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+        '<a:solidFill><a:srgbClr val="' + color + '"/></a:solidFill>'
+        '<a:ln><a:noFill/></a:ln></wps:spPr><wps:bodyPr/></wps:wsp>'
+        '</a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>'
+    )
+    paragraph._p.append(parse_xml(xml))
+
+
+def _vip_page_field(paragraph, font, size, color):
+    begin = OxmlElement('w:fldChar')
+    begin.set(qn('w:fldCharType'), 'begin')
+    instr = OxmlElement('w:instrText')
+    instr.set(qn('xml:space'), 'preserve')
+    instr.text = 'PAGE  \\* MERGEFORMAT'
+    end = OxmlElement('w:fldChar')
+    end.set(qn('w:fldCharType'), 'end')
+    run = paragraph.add_run()
+    _vip_font(run, font, size, color=color)
+    run._element.append(begin)
+    run._element.append(instr)
+    run._element.append(end)
+
+
+def _vip_fit_photo(path, max_w, max_h):
+    """'contain'-Skalierung des Fotos in max_w x max_h (Zoll), Seitenverhältnis
+    bleibt erhalten."""
+    from PIL import Image
+    with Image.open(path) as img:
+        pw, ph = img.size
+    aspect = pw / ph
+    if (max_w / max_h) > aspect:
+        height = Inches(max_h)
+        width = Emu(int(Inches(max_h) * aspect))
+    else:
+        width = Inches(max_w)
+        height = Emu(int(Inches(max_w) / aspect))
+    return width, height
+
+
+def _vip_body_paragraphs(doc, text):
+    """VIP-Fließtext: linksbündiges Arial, quadratische grüne Aufzählungszeichen.
+    Gleiche Aufzählungs-/Umbruch-Logik wie bei Vertico (Einleitung bleibt bei der
+    Liste, Liste bricht nicht auseinander), nur im VIP-Stil."""
+    font = config.VIP_BODY_FONT
+    size = Pt(10.5)
+    bullet_prefixes = ("- ", "• ", "* ", "– ", "‐ ", "· ", "•\t", "-\t")
+    prose = []
+    group = []
+    prev_was_bullet = False
+
+    def _close_group():
+        if not group:
+            return
+        for bp in group[:-1]:
+            bp.paragraph_format.keep_with_next = True
+        group[-1].paragraph_format.keep_with_next = False
+        group.clear()
+
+    def _flush(keep_with_next=False, after_bullets=False):
+        nonlocal prev_was_bullet
+        block = "\n".join(prose).strip()
+        prose.clear()
+        if not block:
+            return
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(10) if after_bullets else Pt(0)
+        p.paragraph_format.space_after = Pt(7)
+        p.paragraph_format.line_spacing = 1.15
+        p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        if keep_with_next:
+            p.paragraph_format.keep_with_next = True
+        _vip_font(p.add_run(block), font, size, color=config.VIP_INK)
+        prev_was_bullet = False
+
+    for raw in text.split("\n"):
+        s = raw.strip()
+        if not s:
+            _close_group()
+            _flush(after_bullets=prev_was_bullet)
+            continue
+        marker = next((pref for pref in bullet_prefixes if s.startswith(pref)), None)
+        if marker:
+            _flush(keep_with_next=bool(prose and not prev_was_bullet))
+            item = s[len(marker):].strip()
+            p = doc.add_paragraph()
+            p.paragraph_format.left_indent = Inches(0.32)
+            p.paragraph_format.first_line_indent = Inches(-0.32)
+            p.paragraph_format.space_before = (Pt(4) if prev_was_bullet else Pt(8))
+            p.paragraph_format.space_after = Pt(4)
+            _vip_font(p.add_run("▪  "), font, size, bold=True,
+                      color=config.VIP_BRAND_COLOR)
+            _vip_font(p.add_run(item), font, size, color=config.VIP_INK)
+            group.append(p)
+            prev_was_bullet = True
+        else:
+            if prev_was_bullet:
+                _close_group()
+            prose.append(s)
+    _close_group()
+    _flush(after_bullets=prev_was_bullet)
+
+
+def _build_vip_profile(data, sections, output_path, assets_dir, photo_path,
+                       section_keys, brand, blind, reference):
+    from docx.enum.table import WD_ALIGN_VERTICAL, WD_ROW_HEIGHT_RULE
+    from docx.enum.text import WD_TAB_ALIGNMENT
+
+    GREEN = config.VIP_BRAND_COLOR
+    DARK = config.VIP_DARK
+    INK = config.VIP_INK
+    HFONT = config.VIP_HEAD_FONT
+    BFONT = config.VIP_BODY_FONT
+
+    doc = Document()
+    normal = doc.styles['Normal']
+    normal.font.name = BFONT
+    normal.font.size = Pt(10.5)
+
+    sec = doc.sections[0]
+    sec.page_width = Inches(8.5)
+    sec.page_height = Inches(11)
+    sec.top_margin = Inches(0.0)
+    sec.bottom_margin = Inches(0.0)
+    sec.left_margin = Inches(0.0)
+    sec.right_margin = Inches(0.0)
+
+    # Identität / Titel -- Blindprofil: Chiffre statt Name, kein Foto.
+    if blind:
+        identifier = (reference or "").strip() or "Vertraulich"
+        sub_text = "Anonymisiert  ·  Vertraulich"
+    else:
+        identifier = f"{data.get('vorname','')} {data.get('nachname','')}".strip() or "Kandidat"
+        sub_text = "Vertraulich  ·  Personalberatung"
+    role_text = data.get('rolle_kurz', data.get('rolle', '')) or ""
+
+    # ---- Deckblatt: 2-Spalten-Tabelle, linke Leiste dunkel -----------------
+    table = doc.add_table(rows=1, cols=2)
+    table.autofit = False
+    left, right = table.rows[0].cells
+    left.width = Inches(2.6)
+    right.width = Inches(5.9)
+    table.rows[0].height = Inches(9.4)
+    table.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
+    _vip_shade(left, DARK)
+    left.vertical_alignment = WD_ALIGN_VERTICAL.TOP
+    right.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+
+    lp = left.paragraphs[0]
+    lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    lp.paragraph_format.space_before = Pt(26)
+    try:
+        lp.add_run().add_picture(os.path.join(assets_dir, brand["cover_logo"]),
+                                 width=Inches(1.0))
+    except Exception:
+        pass
+
+    if not blind and photo_path and os.path.exists(photo_path):
+        php = left.add_paragraph()
+        php.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        php.paragraph_format.space_before = Pt(18)
+        try:
+            pw, ph = _vip_fit_photo(photo_path, max_w=1.5, max_h=1.9)
+            php.add_run().add_picture(photo_path, width=pw, height=ph)
+        except Exception:
+            pass
+        left.add_paragraph()
+    else:
+        for _ in range(3):
+            left.add_paragraph()
+
+    npar = left.add_paragraph()
+    _vip_multiline(npar, identifier.upper().split(" "), HFONT, Pt(16),
+                   color="FFFFFF", bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
+    if role_text:
+        rpar = left.add_paragraph()
+        rpar.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        rpar.paragraph_format.space_before = Pt(6)
+        _vip_font(rpar.add_run(role_text), HFONT, Pt(10), color=GREEN)
+
+    for _ in range(5):
+        left.add_paragraph()
+    contact_lines = [brand["name"]] + list(brand["address"]) + [brand["contact"][0]]
+    for line in contact_lines:
+        cpar = left.add_paragraph()
+        cpar.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        cpar.paragraph_format.space_after = Pt(0)
+        _vip_font(cpar.add_run(line), HFONT, Pt(8.5), color="D9E3B8")
+
+    rp = right.paragraphs[0]
+    rp.paragraph_format.left_indent = Inches(0.5)
+    _vip_multiline(rp, ["KANDIDATEN-", "PROFIL"], HFONT, Pt(34), color=INK, bold=True)
+    subp = right.add_paragraph()
+    subp.paragraph_format.left_indent = Inches(0.5)
+    subp.paragraph_format.space_before = Pt(10)
+    _vip_font(subp.add_run(sub_text), HFONT, Pt(11), color=GREEN)
+
+    # ---- Innenseiten: eigene Sektion mit Kopf-/Fußzeile + Rand-Spalte ------
+    s2 = doc.add_section(WD_SECTION.NEW_PAGE)
+    s2.page_width = Inches(8.5)
+    s2.page_height = Inches(11)
+    s2.top_margin = Inches(1.05)
+    s2.bottom_margin = Inches(0.9)
+    s2.left_margin = Inches(1.35)
+    s2.right_margin = Inches(1.0)
+    s2.header_distance = Inches(0.5)
+    s2.footer_distance = Inches(0.45)
+
+    hdr = s2.header
+    hdr.is_linked_to_previous = False
+    hp = hdr.paragraphs[0]
+    hp.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    _vip_pborder(hp, 'bottom', "CCCCCC", sz=4, space=6)
+    _vip_font(hp.add_run(f"Kandidatenprofil  ·  {identifier}"), BFONT, Pt(8.5),
+              color="888888")
+    _vip_spine(hp, GREEN)
+
+    ftr = s2.footer
+    ftr.is_linked_to_previous = False
+    fp = ftr.paragraphs[0]
+    _vip_pborder(fp, 'top', GREEN, sz=6, space=6)
+    fp.paragraph_format.tab_stops.add_tab_stop(Inches(6.15), WD_TAB_ALIGNMENT.RIGHT)
+    _vip_font(fp.add_run(f"{brand['name']}  ·  Vertraulich"), BFONT, Pt(9),
+              color="777777")
+    fp.add_run("\t")
+    _vip_page_field(fp, BFONT, Pt(9), "777777")
+
+    # ---- Steckbrief-Panel (Personendaten) ---------------------------------
+    eb = doc.add_paragraph()
+    eb.paragraph_format.space_after = Pt(4)
+    _vip_font(eb.add_run("STECKBRIEF"), HFONT, Pt(11), bold=True, color=GREEN)
+
+    pd_fields = config.BLIND_PERSONAL_DATA_FIELDS if blind else config.PERSONAL_DATA_FIELDS
+    items = [(label.rstrip(':').strip(), str(data.get(key, ""))) for key, label in pd_fields]
+    n = len(items)
+    rows = (n + 1) // 2
+    pt = doc.add_table(rows=rows, cols=4)
+    pt.autofit = False
+    _vip_table_borders(pt, "FFFFFF", sz=8)   # weiße Fugen zwischen den Feldern
+    widths = [Inches(1.3), Inches(2.0), Inches(1.3), Inches(2.0)]
+    for i, (lab, val) in enumerate(items):
+        r = i // 2
+        c = (i % 2) * 2
+        lc = pt.cell(r, c)
+        vc = pt.cell(r, c + 1)
+        _vip_shade(lc, config.VIP_PANEL_LABEL)
+        _vip_shade(vc, config.VIP_PANEL_VALUE)
+        for cell, (txt, is_bold, col) in ((lc, (lab, True, DARK)),
+                                          (vc, (val, False, INK))):
+            cp = cell.paragraphs[0]
+            cp.paragraph_format.space_before = Pt(3)
+            cp.paragraph_format.space_after = Pt(3)
+            cp.paragraph_format.left_indent = Inches(0.08)
+            _vip_font(cp.add_run(txt), BFONT, Pt(9.5), bold=is_bold, color=col)
+    if n % 2 == 1:   # letzte Zeile hat ein leeres Feldpaar -> neutral weiß
+        r = rows - 1
+        _vip_shade(pt.cell(r, 2), "FFFFFF")
+        _vip_shade(pt.cell(r, 3), "FFFFFF")
+    for r in range(rows):
+        for ci, w in enumerate(widths):
+            pt.cell(r, ci).width = w
+
+    ipp = doc.add_paragraph()
+    ipp.paragraph_format.space_before = Pt(8)
+    _vip_font(ipp.add_run("Interviewpartner   "), BFONT, Pt(9.5), bold=True, color=DARK)
+    _vip_font(ipp.add_run(data.get("interviewpartner", "")), BFONT, Pt(9.5), color=INK)
+
+    # ---- Nummerierte Rubriken ---------------------------------------------
+    rolle = data.get("rolle", "")
+    active_keys = (section_keys if section_keys is not None
+                   else [e["key"] for e in config.PROFILE_SECTIONS])
+    num = 0
+    for entry in config.ALL_SECTIONS_ORDERED:
+        if entry["key"] not in active_keys:
+            continue
+        num += 1
+        heading_text = entry["heading"].format(rolle=rolle)
+        p = doc.add_paragraph()
+        p.paragraph_format.space_before = Pt(22)
+        p.paragraph_format.space_after = Pt(9)
+        p.paragraph_format.keep_with_next = True
+        _vip_pborder(p, 'bottom', config.VIP_RULE_LIGHT, sz=6, space=6)
+        _vip_font(p.add_run(f"{num:02d}"), HFONT, Pt(17), bold=True, color=GREEN)
+        _vip_font(p.add_run("   " + heading_text.upper()), HFONT, Pt(12),
+                  bold=True, color=INK)
+        text = sections.get(entry["key"], "")
+        if text:
+            _vip_body_paragraphs(doc, text)
+
+    # ---- Abschluss: Monat/Jahr, Berater, Firmierung -----------------------
+    _monate = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+               "August", "September", "Oktober", "November", "Dezember"]
+    heute = datetime.date.today()
+    cl = doc.add_paragraph()
+    cl.paragraph_format.space_before = Pt(24)
+    _vip_font(cl.add_run(f"{_monate[heute.month - 1]} {heute.year}"), BFONT,
+              Pt(10.5), color=INK)
+    berater = (data.get("interviewpartner") or "").strip()
+    sig_lines = ([berater] if berater else []) + [brand["name"]]
+    sg = doc.add_paragraph()
+    sg.paragraph_format.space_before = Pt(6)
+    _vip_multiline(sg, sig_lines, BFONT, Pt(10.5), color=INK)
 
     doc.save(output_path)
     return output_path

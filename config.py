@@ -349,6 +349,22 @@ WORDS_PER_PAGE_ESTIMATE = 236
 # VIP-Markenfarbe: dominantes Grün, aus 'Logos/Firmen Logo VIP .png' gesampelt.
 VIP_BRAND_COLOR = "B4C13E"
 
+# -----------------------------------------------------------------------
+# VIP-EIGENES DOKUMENT-DESIGN
+# VIP-Profile nutzen ein vollständig eigenes Layout (Deckblatt mit dunkler
+# Seitenleiste, Steckbrief-Panel, nummerierte Rubriken, grüne Rand-Spalte,
+# eigene Kopf-/Fußzeile), damit sie optisch nichts mit den Vertico-Profilen
+# gemein haben. Diese Werte gelten AUSSCHLIESSLICH für VIP -- Vertico bleibt
+# unverändert (siehe docx_builder._build_vip_profile).
+# -----------------------------------------------------------------------
+VIP_HEAD_FONT = "Arial"      # serifenlos, bewusst anders als Verticos Calibri
+VIP_BODY_FONT = "Arial"
+VIP_DARK = "23301C"          # dunkles Oliv-Anthrazit (Seitenleiste, Überschriften)
+VIP_INK = "262626"           # Anthrazit für Fließtext
+VIP_PANEL_LABEL = "E4EAC8"   # Steckbrief-Panel: Label-Felder (helles Grün)
+VIP_PANEL_VALUE = "F3F6E7"   # Steckbrief-Panel: Wert-Felder (sehr helles Grün)
+VIP_RULE_LIGHT = "DCE2C3"    # feine Trennlinie unter den Rubrik-Überschriften
+
 # Größe des VIP-Icons auf dem Deckblatt (kleiner als das große Vertico-Logo,
 # da das Icon niedrig aufgelöst ist -- daneben steht der Firmenschriftzug).
 COVER_ICON_SIZE = Inches(1.05)
