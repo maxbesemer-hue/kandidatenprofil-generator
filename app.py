@@ -493,6 +493,25 @@ if _draft_clicked:
             st.session_state.sections = {k: "" for k in selected_keys}
             st.session_state.sections.update(sections)
 
+        # Zusätzlicher Anonymisierungs-Durchgang nur beim Blindprofil: schreibt
+        # Fakten UND Texte gezielt so um, dass keine Rückschlüsse auf die Person
+        # möglich sind (ohne den Inhalt zu verändern). Scheitert dieser Schritt,
+        # bleibt der Entwurf erhalten und es folgt nur ein Hinweis.
+        if is_blind_selected:
+            with st.spinner("Anonymisiere das Blindprofil..."):
+                try:
+                    facts_anon, sections_anon = ai_extraction.anonymize_blind(
+                        api_key, st.session_state.personal_data,
+                        st.session_state.sections)
+                    st.session_state.personal_data.update(facts_anon)
+                    st.session_state.sections.update(sections_anon)
+                except Exception:
+                    st.warning(
+                        "Hinweis: Der zusätzliche Anonymisierungs-Durchgang konnte "
+                        "nicht abgeschlossen werden. Bitte die Angaben vor dem Export "
+                        "manuell prüfen."
+                    )
+
         st.session_state.active_sections = list(selected_keys)
         st.session_state.is_blind = is_blind_selected
         st.session_state.is_leadership = is_leadership_selected

@@ -429,3 +429,108 @@ def draft_sections(api_key: str, transcript_text: str, cv_text: str,
         result[key] = text
         written.append((heading, text))
     return result
+
+
+# -----------------------------------------------------------------------
+# ZUSÄTZLICHER ANONYMISIERUNGS-DURCHGANG (nur Blindprofil)
+# Eigener Schritt NACH Fakten-Extraktion und Textentwurf. Verlässt sich nicht
+# darauf, dass die Anonymisierung "nebenbei" beim Schreiben passiert, sondern
+# schreibt Fakten UND Texte gezielt um -- mit konkreten Vorher/Nachher-Beispielen.
+# Gilt markenunabhängig für jedes Blindprofil (Vertico wie VIP).
+# -----------------------------------------------------------------------
+ANON_FACT_KEYS = [
+    "jahrgang", "region", "branche", "unternehmensgroesse", "familienstand",
+    "kuendigungsfrist", "ist_gehalt", "gehaltswunsch", "verfuegbarkeit",
+]
+
+ANONYMIZE_RULES = """Du bist der Anonymisierungs-/Schwärzungsschritt einer \
+Personalberatung für ein BLINDPROFIL. Du erhältst bereits fertige Steckbrief-Fakten \
+und Abschnittstexte. Deine EINZIGE Aufgabe: alle Angaben so umschreiben, dass sich \
+KEINERLEI Rückschluss auf die konkrete Person ziehen lässt -- weder über eine \
+Internet-/LinkedIn-Suche noch durch Brancheninsider -- OHNE Inhalt, Reihenfolge, \
+Aussagekraft oder fachliche Tiefe zu verändern.
+
+ÄNDERE AUSSCHLIESSLICH identifizierende Details; lasse alles andere unverändert:
+- Orte: höchstens Bundesland-/Großregion-Ebene. Keine Städte, Stadtteile, Landkreise, \
+"Raum <Stadt>" oder namentlich benannten Standorte/Einrichtungen (Flughäfen, Werke, \
+Niederlassungen, Projekte mit Eigennamen).
+- Daten/Zeit: keine exakten Jahreszahlen, Zeitspannen oder Kalenderdaten -> Zeiträume/\
+Phasen ("langjährig", "mehrjährig", "über rund drei Jahrzehnte", "zuletzt", \
+"mittelfristig").
+- Kennzahlen: keine punktgenauen Zahlen (Teamgröße, Berichte, Budget, Umsatz) -> \
+Größenordnung/Spanne ("dreistellige Mitarbeiterzahl", "mehrere direkte Berichte", \
+"Servicebudget im zweistelligen Millionenbereich").
+- Arbeitgeber/Jobtitel: funktional umschreiben; keine konkreten (googelbaren) Jobtitel \
+oder eindeutigen Stationsbezeichnungen; Arbeitgeber nicht identifizierbar beschreiben.
+- Branche nur so grob, dass auch Insider nicht auf ein konkretes Unternehmen schließen \
+können; sehr kleine Nischen eine Ebene abstrahieren.
+- Geburtsjahr -> Jahrzehnt-/Altersband; keine Alters-/Privatangaben von Angehörigen.
+- Keine Namen, Markennamen, Adressen, Kontaktdaten.
+
+BEISPIELE (Vorher -> Nachher):
+- "1973" -> "Anfang der 1970er-Jahre"
+- "Raum Landshut/München" -> "Bayern"
+- "internationaler Aufzugskonzern" / "weltweit tätiger Aufzughersteller" -> \
+"international tätiger Konzern der Branche"
+- "Aufzugs- und Fahrtreppenbranche" / "Aufzugsbau / Service" -> "Gebäude- und \
+Fördertechnik / technischer Service"
+- "Supervisor am Standort Flughafen München" -> "eine erste Führungsaufgabe im \
+Servicebereich an einem verkehrsstarken Standort"
+- "Distriktmanager Service für die Region Augsburg/München" -> "eine mehrjährige \
+Verantwortung als Service-/Gebietsmanager für ein größeres süddeutsches Gebiet"
+- "Field Development Manager DACH" -> "eine überregionale konzeptionelle Funktion im \
+deutschsprachigen Raum"
+- "rund 120 Mitarbeitenden und einem Budget von etwa 15 Millionen Euro" -> "einer \
+dreistelligen Mitarbeiterzahl und einem Servicebudget im zweistelligen Millionenbereich"
+- "zunächst in Berlin, ab 2008 in Bayern" -> "in mehreren Regionen Deutschlands"
+- "reguläre Frist bis 01.06.2027" / "regulär zum 01.06.2027" -> "mittelfristig verfügbar"
+- "2 Kinder (16 und 18 Jahre)" -> "2 Kinder"
+
+Bewahre Aufzählungen: Zeilen, die mit "- " beginnen, bleiben Aufzählungspunkte (wieder \
+mit "- " beginnend). Erfinde nichts hinzu und lasse nichts Fachliches weg. Gib jedes \
+Feld unter demselben Schlüssel zurück, den du erhalten hast."""
+
+
+def anonymize_blind(api_key: str, facts: dict, sections: dict):
+    """Zusätzlicher Anonymisierungs-Durchgang für Blindprofile. Schreibt die bereits
+    erzeugten Steckbrief-Fakten und Abschnittstexte so um, dass keine Rückschlüsse auf
+    die Person möglich sind -- ohne den fachlichen Inhalt zu verändern.
+
+    Gibt (fakten_anonymisiert, abschnitte_anonymisiert) zurück. Bei einem Fehler wird
+    der jeweils unveränderte Eingang zurückgegeben (kein Datenverlust)."""
+    client = anthropic.Anthropic(api_key=api_key)
+    fact_items = {k: str(facts.get(k, "") or "") for k in ANON_FACT_KEYS}
+    sec_items = {k: v for k, v in sections.items() if v and v.strip()}
+
+    props = {k: {"type": "string"} for k in fact_items}
+    props.update({k: {"type": "string"} for k in sec_items})
+    schema = {
+        "type": "object",
+        "properties": props,
+        "required": list(props.keys()),
+        "additionalProperties": False,
+    }
+    payload = {"fakten": fact_items, "abschnitte": sec_items}
+    user_content = (
+        "Anonymisiere die folgenden FAKTEN (Steckbrief-Felder) und ABSCHNITTE "
+        "(Fließtexte). Gib jedes Feld unter demselben Schlüssel zurück -- die "
+        "Fakten-Felder mit ihrem anonymisierten Wert, die Abschnitte (gleiche "
+        "Schlüssel) mit dem anonymisierten Text. Verändere nur identifizierende "
+        "Details, sonst nichts.\n\n"
+        + json.dumps(payload, ensure_ascii=False, indent=2)
+    )
+    try:
+        result = _call_claude_structured(
+            client, ANONYMIZE_RULES, user_content, schema, max_tokens=8000)
+    except Exception:
+        return dict(facts), dict(sections)
+
+    facts_out = dict(facts)
+    for k in fact_items:
+        if isinstance(result.get(k), str):
+            facts_out[k] = result[k]
+    sections_out = dict(sections)
+    for k in sec_items:
+        if isinstance(result.get(k), str) and result[k].strip():
+            sections_out[k] = result[k]
+    return facts_out, sections_out
