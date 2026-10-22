@@ -365,6 +365,20 @@ VIP_PANEL_LABEL = "E4EAC8"   # Steckbrief-Panel: Label-Felder (helles Grün)
 VIP_PANEL_VALUE = "F3F6E7"   # Steckbrief-Panel: Wert-Felder (sehr helles Grün)
 VIP_RULE_LIGHT = "DCE2C3"    # feine Trennlinie unter den Rubrik-Überschriften
 
+# VIP-eigene Rubrik-Überschriften (Synonyme zum Vertico-Original). NUR die im
+# VIP-Dokument angezeigte Überschrift ändert sich -- Inhalt, Reihenfolge und
+# KI-Texterstellung bleiben identisch zu Vertico. Keys = Abschnitts-Keys aus
+# ALL_SECTIONS_ORDERED. Nicht gelistete Keys behalten die Original-Überschrift.
+VIP_SECTION_HEADINGS = {
+    "werdegang": "Karriereverlauf",
+    "situation_motivation": "Derzeitige Situation und Veränderungsmotivation",
+    "zielrolle_verstaendnis": "Einordnung der angestrebten Aufgabe",
+    "fuehrungsverstaendnis": "Führungsstil und Haltung",
+    "fachkompetenz": "Fachprofil und Herangehensweise",
+    "persoenliche_wirkung": "Auftreten und Wirkung",
+    "gesamteinschaetzung": "Zusammenfassende Beurteilung",
+}
+
 # Größe des VIP-Icons auf dem Deckblatt (kleiner als das große Vertico-Logo,
 # da das Icon niedrig aufgelöst ist -- daneben steht der Firmenschriftzug).
 COVER_ICON_SIZE = Inches(1.05)

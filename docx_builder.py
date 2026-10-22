@@ -1082,7 +1082,10 @@ def _build_vip_profile(data, sections, output_path, assets_dir, photo_path,
         if entry["key"] not in active_keys:
             continue
         num += 1
-        heading_text = entry["heading"].format(rolle=rolle)
+        # VIP zeigt eigene Rubrik-Überschriften (Synonyme); der Inhalt bleibt
+        # identisch. Nicht gelistete Keys behalten die Original-Überschrift.
+        heading_src = config.VIP_SECTION_HEADINGS.get(entry["key"], entry["heading"])
+        heading_text = heading_src.format(rolle=rolle)
         p = doc.add_paragraph()
         p.paragraph_format.space_before = Pt(22)
         p.paragraph_format.space_after = Pt(9)
