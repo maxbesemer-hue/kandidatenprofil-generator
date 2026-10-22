@@ -37,6 +37,17 @@ st.set_page_config(page_title="Kandidatenprofil-Generator", layout="wide")
 
 _APP_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+def _rubrik_heading(entry, brand_key, rolle=""):
+    """Anzeige-Überschrift einer Rubrik -- je nach gewählter Marke. Bei VIP die
+    synonyme Überschrift (config.VIP_SECTION_HEADINGS), sonst das Vertico-
+    Original. So sieht man schon in der App, welche Überschrift später im
+    Dokument steht. Der Inhalt bleibt davon unberührt."""
+    base = entry["heading"]
+    if brand_key == "vip":
+        base = config.VIP_SECTION_HEADINGS.get(entry["key"], base)
+    return base.format(rolle=rolle)
+
 # -----------------------------------------------------------------------
 # DESIGN: Variante C "Dossier" -- editorial, markenstark. Tiefes Navy mit
 # Messing-Akzent auf Elfenbein, Serifen-Display (Cormorant Garamond) mit
@@ -441,7 +452,7 @@ with _rb:
         st.caption("Häkchen entfernen, um eine Rubrik nicht aufzunehmen.")
         selected_keys = []
         for entry in config.get_profile_sections(is_leadership_selected):
-            heading = entry["heading"].format(rolle=(position_titel or "Zielrolle"))
+            heading = _rubrik_heading(entry, brand_key, rolle=(position_titel or "Zielrolle"))
             if st.checkbox(heading, value=True, key=f"secsel_{entry['key']}"):
                 selected_keys.append(entry["key"])
 
@@ -571,7 +582,8 @@ with st.container(border=True):
     for entry in config.ALL_SECTIONS_ORDERED:
         if entry["key"] not in _active:
             continue
-        heading = entry["heading"].format(rolle=st.session_state.personal_data.get("rolle", ""))
+        heading = _rubrik_heading(entry, brand_key,
+                                  rolle=st.session_state.personal_data.get("rolle", ""))
         text_vorhanden = bool(st.session_state.sections.get(entry["key"], "").strip())
         label_suffix = "" if text_vorhanden else "  ⚠️ noch leer"
         with st.expander(heading + label_suffix, expanded=not text_vorhanden):
