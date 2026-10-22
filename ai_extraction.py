@@ -55,21 +55,39 @@ BLIND_EXTRACTION_RULES = """Du bist Assistent einer Personalberatung (Executive 
 Search) und erstellst ein ANONYMISIERTES Kandidatenprofil (Blindprofil). Aus den \
 extrahierten Angaben darf sich KEIN Rückschluss auf die konkrete Person ziehen lassen.
 
+Ziel ist maximale Anonymität: Weder über eine Internet-/LinkedIn-Suche noch durch \
+Brancheninsider darf sich erschließen lassen, um welche konkrete Person es sich handelt. \
+Im Zweifel IMMER die abstraktere Angabe wählen.
+
 Du bekommst ein Interviewprotokoll und optional einen Lebenslauf. Extrahiere \
-ausschließlich Informationen, die tatsächlich im Text stehen, und ANONYMISIERE sie:
-- "jahrgang": nur das Geburtsjahr (z.B. "1985") oder eine Altersangabe, kein volles Datum.
-- "region": nur eine grobe Region statt des genauen Wohnorts (z.B. "Raum Stuttgart", \
-"Großraum München", "Südwestdeutschland") -- NIE die genaue Stadt oder Adresse.
-- "branche": die Branche des aktuellen Arbeitgebers (z.B. "Maschinenbau", \
-"Aufzugsbranche"), NIE den Firmennamen.
-- "unternehmensgroesse": grobe Größe des aktuellen Arbeitgebers (z.B. "mittelständisch, \
-ca. 500 Mitarbeitende", "Großkonzern"), ohne Firmennamen.
-- "familienstand", "kuendigungsfrist", "ist_gehalt", "gehaltswunsch", "verfuegbarkeit": \
-wie im Material angegeben.
+ausschließlich Informationen, die tatsächlich im Text stehen, und ANONYMISIERE sie \
+konsequent:
+- "jahrgang": NICHT das exakte Geburtsjahr und kein volles Datum, sondern nur ein \
+grobes Band -- ein Jahrzehnt ("Anfang/Mitte/Ende der 1970er-Jahre") oder eine \
+Altersspanne ("Anfang 50", "ca. 50-55 Jahre").
+- "region": höchstens Bundesland- oder Großregion-Ebene (z.B. "Bayern", \
+"Süddeutschland", "westdeutscher Raum") -- NIEMALS Stadt, Stadtteil, Landkreis, \
+"Raum <Stadt>" oder Adresse.
+- "branche": nur eine BREITE Branchenangabe, die kein konkretes Unternehmen erkennen \
+lässt. Ist die tatsächliche Branche eine sehr kleine Nische mit wenigen Anbietern \
+(sodass Insider daraus die Firma ableiten könnten), abstrahiere eine Ebene höher \
+(z.B. statt "Aufzugs- und Fahrtreppenbranche" -> "Gebäude- und Fördertechnik / \
+technischer Service"). NIE den Firmennamen.
+- "unternehmensgroesse": nur eine grobe Größenordnung (z.B. "international tätiger \
+Konzern, mehrere zehntausend Mitarbeitende", "Mittelstand, ca. 500 Mitarbeitende"). \
+KEINE Zusätze, die den Arbeitgeber oder die Nische verraten (nicht "weltweit tätiger \
+Aufzughersteller"), kein Firmenname.
+- "familienstand": nur grob (z.B. "verheiratet, 2 Kinder") -- KEINE Altersangaben der \
+Kinder und keine weiteren identifizierenden Privatdetails.
+- "kuendigungsfrist" und "verfuegbarkeit": nur RELATIV/als Zeitraum ("ungekündigt", \
+"kurzfristig", "mittelfristig verfügbar", "ggf. früher über einen Aufhebungsvertrag") \
+-- NIEMALS ein exaktes Kalenderdatum.
+- "ist_gehalt", "gehaltswunsch": gerundete Näherung/Spanne wie im Material \
+(z.B. "ca. 140.000 € brutto p.a.").
 - "interviewpartner": Name des Beraters/Interviewers (das ist NICHT der Kandidat).
 - "rolle" ist die volle Zielposition, "rolle_kurz" eine kurze Version fürs Deckblatt.
-Nenne NIEMALS den Namen des Kandidaten, keinen Arbeitgebernamen, keine genaue Adresse \
-und keine Kontaktdaten. Erfinde nichts; fehlt eine Angabe, gib "" zurück."""
+Nenne NIEMALS den Namen des Kandidaten, keinen Arbeitgeber-/Markennamen, keine genaue \
+Adresse und keine Kontaktdaten. Erfinde nichts; fehlt eine Angabe, gib "" zurück."""
 
 DRAFTING_BASE_RULES = """Du bist Assistent einer Personalberatung (Executive Search) \
 und entwirfst die Fließtext-Abschnitte eines Kandidatenprofils auf Basis eines \
@@ -217,14 +235,30 @@ def _blind_drafting_block() -> str:
     """Anonymisierungs-Anweisung für die Fließtexte im Blindprofil."""
     return """ANONYMISIERUNG (BLINDPROFIL): Dieses Profil muss vollständig anonym \
 sein -- aus dem Text darf sich kein Rückschluss auf die konkrete Person ziehen \
-lassen, obwohl der Kandidat fachlich VOLLUMFÄNGLICH beschrieben wird.
+lassen, obwohl der Kandidat fachlich VOLLUMFÄNGLICH beschrieben wird. Prüfe jeden \
+Satz: Weder über eine Internet-/LinkedIn-Suche noch durch Brancheninsider darf \
+erkennbar werden, um wen es sich handelt. Im Zweifel IMMER abstrakter formulieren -- \
+die fachliche Aussagekraft bleibt dabei erhalten.
 - Nenne NIEMALS den Namen des Kandidaten. Bezeichne die Person neutral als "die \
 Kandidatin" bzw. "der Kandidat" (nutze das aus dem Material erkennbare Geschlecht; \
 ist es unklar, schreibe "die Kandidatin/der Kandidat").
-- Nenne KEINE Firmennamen, Markennamen, konkreten Orte oder Städte, Projektnamen \
-oder sonstige eindeutig identifizierenden Details. Ersetze sie durch allgemeine \
-Beschreibungen (z.B. "ein mittelständischer Maschinenbauer", "im süddeutschen \
-Raum", "ein namhafter Wettbewerber").
+- KEINE Firmen-/Markennamen, keine konkreten Orte, Städte, Stadtteile, Landkreise \
+oder namentlich benannten Standorte/Einrichtungen (z.B. keine Flughäfen, Werke, \
+Niederlassungen, Projekte mit Eigennamen). Orte höchstens auf Bundesland-/Großregion-\
+Ebene ("im süddeutschen Raum", "in Bayern").
+- KEINE exakten Jahreszahlen, Zeitspannen oder Kalenderdaten. Nutze stattdessen \
+Zeiträume und Phasen ("langjährig", "mehrjährig", "über rund drei Jahrzehnte", \
+"zuletzt", "vor einigen Jahren"). Stationen als Entwicklungsschritte beschreiben, \
+nicht mit Jahresangaben.
+- KEINE punktgenauen Kennzahlen (Teamgröße, Anzahl direkter Berichte, Budget, Umsatz). \
+Gib sie als Größenordnung/Spanne an ("eine dreistellige Mitarbeiterzahl", "mehrere \
+direkte Berichte", "ein Servicebudget im zweistelligen Millionenbereich").
+- KEINE konkreten (ggf. googelbaren) Jobtitel oder eindeutigen Stationsbezeichnungen \
+-- umschreibe sie funktional ("eine überregionale konzeptionelle Funktion", "eine \
+Gebiets-/Serviceleitung"). Beschreibe den Arbeitgeber nicht so eng, dass er \
+identifizierbar wird; benenne die Branche nur so grob, dass auch Insider nicht auf ein \
+konkretes Unternehmen schließen können (sehr kleine Nischen eine Ebene abstrahieren).
+- KEINE Altersangaben von Angehörigen und keine sonstigen exakten Privatdetails.
 - Beschreibe Aufgaben, Kompetenzen, Erfolge und Persönlichkeit dennoch vollständig \
 und aussagekräftig -- die Anonymisierung darf die fachliche Tiefe nicht schmälern."""
 
