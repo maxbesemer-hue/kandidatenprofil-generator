@@ -505,12 +505,11 @@ if _draft_clicked:
                         st.session_state.sections)
                     st.session_state.personal_data.update(facts_anon)
                     st.session_state.sections.update(sections_anon)
-                    st.caption("Build anon-diag-2 · Anonymisierungs-Durchgang ausgeführt.")
-                except Exception as _anon_err:
+                except Exception:
                     st.warning(
-                        "Hinweis [Build anon-diag-2]: Der Anonymisierungs-Durchgang "
-                        "konnte nicht abgeschlossen werden. Technischer Grund: "
-                        f"{type(_anon_err).__name__}: {str(_anon_err)[:400]}"
+                        "Hinweis: Der zusätzliche Anonymisierungs-Durchgang konnte "
+                        "nicht abgeschlossen werden. Bitte die Angaben vor dem Export "
+                        "manuell prüfen."
                     )
 
         st.session_state.active_sections = list(selected_keys)

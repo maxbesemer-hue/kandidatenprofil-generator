@@ -463,7 +463,11 @@ Größenordnung/Spanne ("dreistellige Mitarbeiterzahl", "mehrere direkte Bericht
 - Arbeitgeber/Jobtitel: funktional umschreiben; keine konkreten (googelbaren) Jobtitel \
 oder eindeutigen Stationsbezeichnungen; Arbeitgeber nicht identifizierbar beschreiben.
 - Branche nur so grob, dass auch Insider nicht auf ein konkretes Unternehmen schließen \
-können; sehr kleine Nischen eine Ebene abstrahieren.
+können; sehr kleine Nischen eine Ebene abstrahieren. Die konkrete Nischenbezeichnung \
+(z.B. "Aufzug", "Fahrtreppe", "Aufzugsservice", "Aufzugskonzern") darf AN KEINER STELLE \
+im Text oder in den Fakten mehr vorkommen -- ersetze sie durchgängig durch die breitere \
+Bezeichnung ("Gebäude- und Fördertechnik / technischer Service" bzw. "internationaler \
+Branchenkonzern").
 - Geburtsjahr -> Jahrzehnt-/Altersband; keine Alters-/Privatangaben von Angehörigen.
 - Keine Namen, Markennamen, Adressen, Kontaktdaten.
 - GEHALTSANGABEN (Ist-Gehalt, Gehaltswunsch) BLEIBEN als ungefähre Zahl erhalten \
@@ -480,8 +484,10 @@ Anteil, inkl. Dienstwagen), verhandlungsbereit"
 - "Raum Landshut/München" -> "Bayern"
 - "internationaler Aufzugskonzern" / "weltweit tätiger Aufzughersteller" -> \
 "international tätiger Konzern der Branche"
-- "Aufzugs- und Fahrtreppenbranche" / "Aufzugsbau / Service" -> "Gebäude- und \
-Fördertechnik / technischer Service"
+- "Aufzugs- und Fahrtreppenbranche" / "Aufzugsbau / Service" / "im Aufzugs- und \
+Fahrtreppenservice" -> "Gebäude- und Fördertechnik / technischer Service"
+- "innerhalb eines internationalen Aufzugskonzerns" -> "innerhalb eines internationalen \
+Branchenkonzerns"
 - "Supervisor am Standort Flughafen München" -> "eine erste Führungsaufgabe im \
 Servicebereich an einem verkehrsstarken Standort"
 - "Distriktmanager Service für die Region Augsburg/München" -> "eine mehrjährige \
