@@ -466,9 +466,17 @@ oder eindeutigen Stationsbezeichnungen; Arbeitgeber nicht identifizierbar beschr
 können; sehr kleine Nischen eine Ebene abstrahieren.
 - Geburtsjahr -> Jahrzehnt-/Altersband; keine Alters-/Privatangaben von Angehörigen.
 - Keine Namen, Markennamen, Adressen, Kontaktdaten.
+- GEHALTSANGABEN (Ist-Gehalt, Gehaltswunsch) BLEIBEN als ungefähre Zahl erhalten \
+(z.B. "ca. 140.000 € brutto p.a., inkl. Dienstwagen, verhandlungsbereit"). Verändere \
+sie NICHT zu vagen Bändern wie "hoher sechsstelliger Bereich" -- das Gehalt ist kein \
+identifizierendes Merkmal. Höchstens die exakte Aufschlüsselung (z.B. "120.000 Fixum + \
+20.000 variabel") zu "Fixum plus variabler Anteil" zusammenfassen.
 
 BEISPIELE (Vorher -> Nachher):
 - "1973" -> "Anfang der 1970er-Jahre"
+- "ca. 140.000 € brutto/Jahr (ca. 120.000 € Fixum + 20.000 € variabel, inkl. \
+Dienstwagen), verhandlungsbereit" -> "ca. 140.000 € brutto p.a. (Fixum plus variabler \
+Anteil, inkl. Dienstwagen), verhandlungsbereit"
 - "Raum Landshut/München" -> "Bayern"
 - "internationaler Aufzugskonzern" / "weltweit tätiger Aufzughersteller" -> \
 "international tätiger Konzern der Branche"
@@ -499,38 +507,44 @@ def anonymize_blind(api_key: str, facts: dict, sections: dict):
     Gibt (fakten_anonymisiert, abschnitte_anonymisiert) zurück. Bei einem Fehler wird
     der jeweils unveränderte Eingang zurückgegeben (kein Datenverlust)."""
     client = anthropic.Anthropic(api_key=api_key)
-    fact_items = {k: str(facts.get(k, "") or "") for k in ANON_FACT_KEYS}
-    sec_items = {k: v for k, v in sections.items() if v and v.strip()}
 
-    props = {k: {"type": "string"} for k in fact_items}
-    props.update({k: {"type": "string"} for k in sec_items})
-    schema = {
-        "type": "object",
-        "properties": props,
-        "required": list(props.keys()),
-        "additionalProperties": False,
-    }
-    payload = {"fakten": fact_items, "abschnitte": sec_items}
-    user_content = (
-        "Anonymisiere die folgenden FAKTEN (Steckbrief-Felder) und ABSCHNITTE "
-        "(Fließtexte). Gib jedes Feld unter demselben Schlüssel zurück -- die "
-        "Fakten-Felder mit ihrem anonymisierten Wert, die Abschnitte (gleiche "
-        "Schlüssel) mit dem anonymisierten Text. Verändere nur identifizierende "
-        "Details, sonst nichts.\n\n"
-        + json.dumps(payload, ensure_ascii=False, indent=2)
-    )
-    try:
-        result = _call_claude_structured(
-            client, ANONYMIZE_RULES, user_content, schema, max_tokens=8000)
-    except Exception:
-        return dict(facts), dict(sections)
-
+    # 1) FAKTEN anonymisieren -- kleiner strukturierter Aufruf, exakt dieselbe
+    #    Form wie die Personendaten-Extraktion (die live funktioniert).
     facts_out = dict(facts)
-    for k in fact_items:
-        if isinstance(result.get(k), str):
-            facts_out[k] = result[k]
+    fact_items = {k: str(facts.get(k, "") or "") for k in ANON_FACT_KEYS}
+    if any(v.strip() for v in fact_items.values()):
+        schema = {
+            "type": "object",
+            "properties": {k: {"type": "string"} for k in ANON_FACT_KEYS},
+            "required": ANON_FACT_KEYS,
+            "additionalProperties": False,
+        }
+        uc = ("Anonymisiere diese Steckbrief-Fakten. Gib jeden Wert unter demselben "
+              "Schlüssel zurück (leere Werte bleiben leer):\n"
+              + json.dumps(fact_items, ensure_ascii=False, indent=2))
+        try:
+            res = _call_claude_structured(
+                client, ANONYMIZE_RULES, uc, schema, max_tokens=2000)
+            for k in ANON_FACT_KEYS:
+                if isinstance(res.get(k), str):
+                    facts_out[k] = res[k]
+        except Exception:
+            pass  # Fakten bleiben im Zweifel unverändert -- kein Datenverlust
+
+    # 2) ABSCHNITTE einzeln anonymisieren -- je ein Text-Aufruf, exakt dieselbe
+    #    Form wie der Abschnitts-Entwurf (die live funktioniert).
+    sec_system = (ANONYMIZE_RULES + "\n\nGib NUR den anonymisierten Abschnittstext "
+                  "zurück -- ohne Vorbemerkung, ohne Überschrift. Behalte die Absätze "
+                  "und Aufzählungszeilen (beginnend mit \"- \") bei.")
     sections_out = dict(sections)
-    for k in sec_items:
-        if isinstance(result.get(k), str) and result[k].strip():
-            sections_out[k] = result[k]
+    for k, v in sections.items():
+        if not (v and v.strip()):
+            continue
+        try:
+            out = _call_claude_text(client, sec_system, v, max_tokens=2000).strip()
+            if len(out) >= 40:
+                sections_out[k] = out
+        except Exception:
+            pass  # einzelner Abschnitt bleibt im Zweifel unverändert
+
     return facts_out, sections_out
