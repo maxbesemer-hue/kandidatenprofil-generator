@@ -655,6 +655,40 @@ def _vip_emu(inch):
     return str(int(inch * 914400))
 
 
+def _vip_rect(paragraph, x_in, y_in, w_in, h_in, color, name="VIP-Flaeche",
+              doc_id=96):
+    """Frei schwebendes, farbgefülltes Rechteck, relativ zur SEITE positioniert
+    und hinter dem Text (behindDoc). Unabhängig vom Textfluss -- dadurch kann es
+    über die volle Seitenhöhe laufen, ohne einen Seitenumbruch auszulösen.
+    Wird fürs Deckblatt genutzt, damit die dunkle Leiste bis zum unteren Rand
+    durchläuft, egal wie hoch der Zelleninhalt ist."""
+    xml = (
+        '<w:r xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+        ' xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"'
+        ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+        ' xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
+        '<w:drawing><wp:anchor distT="0" distB="0" distL="0" distR="0" simplePos="0"'
+        ' relativeHeight="0" behindDoc="1" locked="0" layoutInCell="0" allowOverlap="1">'
+        '<wp:simplePos x="0" y="0"/>'
+        '<wp:positionH relativeFrom="page"><wp:posOffset>' + _vip_emu(x_in)
+        + '</wp:posOffset></wp:positionH>'
+        '<wp:positionV relativeFrom="page"><wp:posOffset>' + _vip_emu(y_in)
+        + '</wp:posOffset></wp:positionV>'
+        '<wp:extent cx="' + _vip_emu(w_in) + '" cy="' + _vip_emu(h_in) + '"/>'
+        '<wp:effectExtent l="0" t="0" r="0" b="0"/><wp:wrapNone/>'
+        '<wp:docPr id="' + str(doc_id) + '" name="' + name + '"/><wp:cNvGraphicFramePr/>'
+        '<a:graphic><a:graphicData uri="http://schemas.microsoft.com/office/word/2010/wordprocessingShape">'
+        '<wps:wsp><wps:cNvSpPr/><wps:spPr>'
+        '<a:xfrm><a:off x="0" y="0"/><a:ext cx="' + _vip_emu(w_in) + '" cy="'
+        + _vip_emu(h_in) + '"/></a:xfrm>'
+        '<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>'
+        '<a:solidFill><a:srgbClr val="' + color + '"/></a:solidFill>'
+        '<a:ln><a:noFill/></a:ln></wps:spPr><wps:bodyPr/></wps:wsp>'
+        '</a:graphicData></a:graphic></wp:anchor></w:drawing></w:r>'
+    )
+    paragraph._p.append(parse_xml(xml))
+
+
 def _vip_spine(paragraph, color):
     """Dünne, vollhohe Akzent-Spalte im linken Seitenrand. Wird im KOPFZEILEN-
     Absatz verankert und relativ zur SEITE positioniert -- dadurch erscheint sie
@@ -809,7 +843,7 @@ def _build_vip_profile(data, sections, output_path, assets_dir, photo_path,
         sub_text = "Anonymisiert  ·  Vertraulich"
     else:
         identifier = f"{data.get('vorname','')} {data.get('nachname','')}".strip() or "Kandidat"
-        sub_text = "Vertraulich  ·  Personalberatung"
+        sub_text = "Vertraulich  ·  Personalberatung  ·  Personalvermittlung"
     role_text = data.get('rolle_kurz', data.get('rolle', '')) or ""
 
     # ---- Deckblatt: 2-Spalten-Tabelle, linke Leiste dunkel -----------------
@@ -818,37 +852,46 @@ def _build_vip_profile(data, sections, output_path, assets_dir, photo_path,
     left, right = table.rows[0].cells
     left.width = Inches(2.6)
     right.width = Inches(5.9)
+    # Moderate Tabellenhöhe (nur so hoch wie der Inhalt), damit das Deckblatt
+    # garantiert EINE Seite bleibt. Die durchgehende dunkle Leiste bis zum
+    # unteren Rand wird NICHT über die Tabellenhöhe erzeugt (das drückte Inhalt
+    # auf Seite 2), sondern über eine frei schwebende Fläche (siehe _vip_rect
+    # unten) -- die läuft unabhängig vom Textfluss bis ganz nach unten.
     table.rows[0].height = Inches(9.4)
     table.rows[0].height_rule = WD_ROW_HEIGHT_RULE.AT_LEAST
     _vip_shade(left, DARK)
     left.vertical_alignment = WD_ALIGN_VERTICAL.TOP
-    right.vertical_alignment = WD_ALIGN_VERTICAL.CENTER
+    right.vertical_alignment = WD_ALIGN_VERTICAL.TOP
 
-    lp = left.paragraphs[0]
-    lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    lp.paragraph_format.space_before = Pt(26)
-    try:
-        lp.add_run().add_picture(os.path.join(assets_dir, brand["cover_logo"]),
-                                 width=Inches(1.0))
-    except Exception:
-        pass
+    # Durchgehende dunkle Leiste über die volle Seitenhöhe (hinter dem Inhalt).
+    _vip_rect(left.paragraphs[0], 0.0, 0.0, 2.6, 11.0, DARK, name="VIP-Leiste")
 
+    # Linke Leiste von oben nach unten:
+    #  1) Kandidatenfoto ganz oben (nur Vollprofil mit Foto)
+    #  2) Name/Chiffre, darunter die Rolle
+    #  3) großer flexibler Abstand
+    #  4) Firmenlogo -- nach unten gerutscht, direkt über die Firmierung
+    #  5) Firmierung (Name einzeilig, Rechtsform darunter) + Adresse + Website
+    first = left.paragraphs[0]
+    first.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    first.paragraph_format.space_before = Pt(18)
     if not blind and photo_path and os.path.exists(photo_path):
-        php = left.add_paragraph()
-        php.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        php.paragraph_format.space_before = Pt(18)
         try:
-            pw, ph = _vip_fit_photo(photo_path, max_w=1.5, max_h=1.9)
-            php.add_run().add_picture(photo_path, width=pw, height=ph)
+            pw, ph = _vip_fit_photo(photo_path, max_w=1.8, max_h=2.2)
+            first.add_run().add_picture(photo_path, width=pw, height=ph)
         except Exception:
             pass
-        left.add_paragraph()
-    else:
-        for _ in range(3):
-            left.add_paragraph()
 
+    # Name: Vor- und Nachname auf zwei Zeilen (Blind: Chiffre einzeilig).
+    if blind:
+        name_lines = [identifier.upper()]
+    else:
+        vn = data.get('vorname', '').strip().upper()
+        nn = data.get('nachname', '').strip().upper()
+        name_lines = [ln for ln in (vn, nn) if ln] or [identifier.upper()]
     npar = left.add_paragraph()
-    _vip_multiline(npar, identifier.upper().split(" "), HFONT, Pt(16),
+    npar.paragraph_format.space_before = Pt(16)
+    _vip_multiline(npar, name_lines, HFONT, Pt(16),
                    color="FFFFFF", bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
     if role_text:
         rpar = left.add_paragraph()
@@ -856,22 +899,109 @@ def _build_vip_profile(data, sections, output_path, assets_dir, photo_path,
         rpar.paragraph_format.space_before = Pt(6)
         _vip_font(rpar.add_run(role_text), HFONT, Pt(10), color=GREEN)
 
-    for _ in range(5):
-        left.add_paragraph()
-    contact_lines = [brand["name"]] + list(brand["address"]) + [brand["contact"][0]]
-    for line in contact_lines:
+    # Mittlerer Akzent, damit die dunkle Leiste nicht leer wirkt: kurze grüne
+    # Linie + dezente Tagline, mittig zwischen Kopf (Foto/Name) und Fußblock.
+    sp1 = left.add_paragraph()
+    sp1.paragraph_format.space_after = Pt(120)
+
+    rule_p = left.add_paragraph()
+    rule_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    rule_p.paragraph_format.left_indent = Inches(0.8)
+    rule_p.paragraph_format.right_indent = Inches(0.8)
+    rule_p.paragraph_format.space_after = Pt(8)
+    _vip_pborder(rule_p, 'bottom', GREEN, sz=12, space=1)
+
+    tag_p = left.add_paragraph()
+    tag_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _vip_font(tag_p.add_run("EXECUTIVE SEARCH"), HFONT, Pt(8.5), bold=True, color=GREEN)
+
+    sp2 = left.add_paragraph()
+    sp2.paragraph_format.space_after = Pt(120)
+
+    logo_p = left.add_paragraph()
+    logo_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    logo_p.paragraph_format.space_after = Pt(8)
+    try:
+        logo_p.add_run().add_picture(os.path.join(assets_dir, brand["cover_logo"]),
+                                     width=Inches(0.9))
+    except Exception:
+        pass
+
+    # Firmierung: Firmenname in einer Zeile, Rechtsform (GmbH ...) mittig darunter.
+    full_name = brand["name"]
+    if "GmbH" in full_name:
+        _i = full_name.index("GmbH")
+        firm_lines = [full_name[:_i].strip(), full_name[_i:].strip()]
+    else:
+        firm_lines = [full_name]
+    firm_lines += list(brand["address"]) + [brand["contact"][0]]
+    for i, line in enumerate(firm_lines):
         cpar = left.add_paragraph()
         cpar.alignment = WD_ALIGN_PARAGRAPH.CENTER
         cpar.paragraph_format.space_after = Pt(0)
-        _vip_font(cpar.add_run(line), HFONT, Pt(8.5), color="D9E3B8")
+        # Firmenname (erste Zeile) fett, der Rest normal.
+        _vip_font(cpar.add_run(line), HFONT, Pt(8.5), bold=(i == 0), color="D9E3B8")
 
-    rp = right.paragraphs[0]
-    rp.paragraph_format.left_indent = Inches(0.5)
-    _vip_multiline(rp, ["KANDIDATEN-", "PROFIL"], HFONT, Pt(34), color=INK, bold=True)
+    # Ansprechpartner (VIP-Berater): im gleichen Stil wie der übrige Fußtext.
+    consultant = brand.get("consultant")
+    if consultant:
+        cons_lines = [consultant.get("name", "")]
+        if consultant.get("mobil"):
+            cons_lines.append("Mobil: " + consultant["mobil"])
+        if consultant.get("email"):
+            cons_lines.append(consultant["email"])
+        for j, line in enumerate(cons_lines):
+            if not line:
+                continue
+            cp = left.add_paragraph()
+            cp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            cp.paragraph_format.space_after = Pt(0)
+            if j == 0:
+                cp.paragraph_format.space_before = Pt(10)
+            _vip_font(cp.add_run(line), HFONT, Pt(8.5), color="D9E3B8")
+
+    # Rechte Seite als Titelblatt: grüne Akzentlinie oben, Titel im oberen
+    # Drittel (statt mittig -> deutlich weniger Leerraum ÜBER dem Titel), unten
+    # eine dezente Datumszeile, damit die Fläche ausgewogen gefüllt ist.
+    rule_top = right.paragraphs[0]
+    rule_top.paragraph_format.left_indent = Inches(0.5)
+    rule_top.paragraph_format.right_indent = Inches(2.2)
+    # Titelblock bewusst etwas tiefer (nicht ganz mittig), damit die rechte
+    # Fläche stimmiger gefüllt wirkt. Der gleiche Betrag wird unten beim
+    # foot_spacer abgezogen, damit die Fußzeile an ihrer Position bleibt.
+    rule_top.paragraph_format.space_before = Pt(165)
+    rule_top.paragraph_format.space_after = Pt(20)
+    _vip_pborder(rule_top, 'bottom', GREEN, sz=14, space=1)
+
+    title_p = right.add_paragraph()
+    title_p.paragraph_format.left_indent = Inches(0.5)
+    _vip_multiline(title_p, ["KANDIDATEN-", "PROFIL"], HFONT, Pt(34), color=INK, bold=True)
+
     subp = right.add_paragraph()
     subp.paragraph_format.left_indent = Inches(0.5)
-    subp.paragraph_format.space_before = Pt(10)
+    subp.paragraph_format.space_before = Pt(12)
     _vip_font(subp.add_run(sub_text), HFONT, Pt(11), color=GREEN)
+
+    # Fußzeile des Titelblatts (unten rechts): feine grüne Linie, darunter
+    # dezent Stand links und Website rechts. Das rahmt die Seite (Linie oben /
+    # unten) und füllt den unteren Weißraum, ohne ihn zu überladen.
+    _monate_t = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli",
+                 "August", "September", "Oktober", "November", "Dezember"]
+    _heute = datetime.date.today()
+    foot_spacer = right.add_paragraph()
+    foot_spacer.paragraph_format.space_after = Pt(350)
+    foot_rule = right.add_paragraph()
+    foot_rule.paragraph_format.left_indent = Inches(0.5)
+    foot_rule.paragraph_format.right_indent = Inches(0.5)
+    foot_rule.paragraph_format.space_after = Pt(6)
+    _vip_pborder(foot_rule, 'bottom', GREEN, sz=6, space=1)
+    foot_p = right.add_paragraph()
+    foot_p.paragraph_format.left_indent = Inches(0.5)
+    foot_p.paragraph_format.tab_stops.add_tab_stop(Inches(5.3), WD_TAB_ALIGNMENT.RIGHT)
+    _vip_font(foot_p.add_run(f"Stand: {_monate_t[_heute.month - 1]} {_heute.year}"),
+              HFONT, Pt(9), color="777777")
+    foot_p.add_run("\t")
+    _vip_font(foot_p.add_run(brand["contact"][0]), HFONT, Pt(9), color="777777")
 
     # ---- Innenseiten: eigene Sektion mit Kopf-/Fußzeile + Rand-Spalte ------
     s2 = doc.add_section(WD_SECTION.NEW_PAGE)

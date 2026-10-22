@@ -395,6 +395,13 @@ BRANDS = {
         "logo_mode": "icon_text",            # kleines Icon + Firmenschriftzug
         "wordmark": "VIP Personal Executive Search",
         "gradient_color": VIP_BRAND_COLOR,   # Grün, passend zum VIP-Logo
+        # Fester Ansprechpartner (VIP-Berater) -- erscheint im VIP-Design unten
+        # in der Deckblatt-Seitenleiste unter der Firmierung.
+        "consultant": {
+            "name": "Christian Glowatzki",
+            "mobil": "0152 31954678",
+            "email": "glowatzki@vip-personal.org",
+        },
     },
 }
 
